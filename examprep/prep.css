@@ -1,0 +1,25 @@
+body {
+  margin: 20px;
+}
+          
+button{
+  background-color:blue;
+  transition:all 1s ease;
+}
+button:hover{
+  transform:scale(1.5);
+  background-color:yellow;
+
+}
+
+/* button:active {
+    transform: scale(0.95);
+    background-color: green;
+    transition: 0.2s;
+} */
+
+button:active{
+  transform:scale(0.5);
+  background-color: orange;
+  transition:0.2s;
+}

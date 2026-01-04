@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atmosphere Weather & AQI</title>
+    <style>
+        /* --- RESET & BODY --- */
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0; 
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            overflow: hidden; 
+            color: white;
+        }
+
+        /* --- BACKGROUND ANIMATIONS (Unchanged) --- */
+        .background-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1; 
+            overflow: hidden;
+            pointer-events: none; /* Allows clicking through shapes if needed */
+        }
+
+        .shape { position: absolute; filter: blur(1px); opacity: 0.7; }
+
+        .ring-1 {
+            width: 500px; height: 500px;
+            border: 4px solid transparent;
+            border-top: 4px solid #ff00cc;
+            border-bottom: 4px solid #333399;
+            border-radius: 50%;
+            top: -100px; left: -100px;
+            animation: spin 15s linear infinite;
+        }
+
+        .ring-2 {
+            width: 300px; height: 300px;
+            border: 15px solid rgba(0, 255, 255, 0.1);
+            border-radius: 50%;
+            bottom: 10%; right: 15%;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .ribbon-1 {
+            width: 600px; height: 80px;
+            background: linear-gradient(90deg, #ff00cc, #333399);
+            transform: rotate(45deg);
+            top: 20%; right: -100px;
+            border-radius: 50px;
+            filter: blur(40px);
+            animation: float 8s ease-in-out infinite reverse;
+        }
+
+        .ribbon-2 {
+            width: 400px; height: 10px;
+            background: #00d2ff;
+            bottom: 20%; left: -50px;
+            transform: rotate(-30deg);
+            box-shadow: 0 0 20px #00d2ff;
+            animation: float 5s ease-in-out infinite 1s;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes float {
+            0% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(2deg); }
+            100% { transform: translateY(0px) rotate(0deg); }
+        }
+
+        /* --- GLASS CARD STYLING --- */
+        .card { 
+            position: relative;
+            z-index: 10; 
+            background: rgba(255, 255, 255, 0.05); 
+            padding: 2rem; 
+            border-radius: 24px; 
+            text-align: center; 
+            width: 340px; 
+            backdrop-filter: blur(20px); 
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+            transition: height 0.3s ease;
+        }
+
+        h2 { margin: 0 0 20px 0; font-weight: 300; letter-spacing: 2px; text-transform: uppercase; font-size: 1.2rem; opacity: 0.8; }
+
+        /* Search Bar Area */
+        .search-box {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        input { 
+            padding: 12px 15px; 
+            width: 60%; 
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px; 
+            color: white;
+            outline: none;
+            transition: all 0.3s;
+        }
+        input:focus { border-color: #00d2ff; background: rgba(0,0,0,0.4); }
+
+        button { 
+            padding: 12px 20px; 
+            background: linear-gradient(135deg, #ff00cc, #333399); 
+            color: white; 
+            border: none; 
+            border-radius: 12px; 
+            cursor: pointer; 
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(255, 0, 204, 0.4); }
+
+        /* --- RESULT DASHBOARD --- */
+        #result { margin-top: 10px; opacity: 0; transition: opacity 0.5s; }
+        #result.visible { opacity: 1; }
+
+        .city-header { font-size: 1.4rem; font-weight: 600; margin-bottom: 5px; }
+        .weather-icon { font-size: 4rem; margin: 10px 0; filter: drop-shadow(0 0 10px rgba(255,255,255,0.3)); }
+        
+        .temp-display { font-size: 3.5rem; font-weight: 200; line-height: 1; margin-bottom: 20px; }
+
+        /* Grid for details */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .stat-box {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .stat-label { font-size: 0.8rem; opacity: 0.6; margin-bottom: 5px; text-transform: uppercase; }
+        .stat-value { font-size: 1.1rem; font-weight: bold; }
+
+        /* AQI Color Classes */
+        .aqi-good { color: #00e676; text-shadow: 0 0 10px rgba(0, 230, 118, 0.4); }
+        .aqi-moderate { color: #ffea00; text-shadow: 0 0 10px rgba(255, 234, 0, 0.4); }
+        .aqi-unhealthy { color: #ff3d00; text-shadow: 0 0 10px rgba(255, 61, 0, 0.4); }
+
+    </style>
+</head>
+<body>
+
+    <div class="background-container">
+        <div class="shape ring-1"></div>
+        <div class="shape ribbon-1"></div>
+        <div class="shape ring-2"></div>
+        <div class="shape ribbon-2"></div>
+    </div>
+
+    <div class="card">
+        <h2>Atmosphere</h2>
+        <div class="search-box">
+            <input type="text" id="cityInput" placeholder="Enter city...">
+            <button onclick="getWeather()">Go</button>
+        </div>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        async function getWeather() {
+            const city = document.getElementById('cityInput').value;
+            const resultDiv = document.getElementById('result');
+            
+            if (!city) return;
+
+            // Reset animation
+            resultDiv.classList.remove('visible');
+            resultDiv.innerHTML = '<p style="margin-top:20px; opacity:0.7;">Scanning atmosphere...</p>';
+            resultDiv.classList.add('visible');
+
+            try {
+                // 1. Get Coordinates
+                const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${city}&count=1&language=en&format=json`;
+                const geoRes = await fetch(geoUrl);
+                const geoData = await geoRes.json();
+
+                if (!geoData.results) throw new Error("City not found");
+
+                const { latitude: lat, longitude: lon, name, country } = geoData.results[0];
+
+                // 2. Fetch Weather AND Air Quality (Parallel request for speed)
+                const weatherPromise = fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
+                const aqiPromise = fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi`);
+
+                const [weatherRes, aqiRes] = await Promise.all([weatherPromise, aqiPromise]);
+                const weatherData = await weatherRes.json();
+                const aqiData = await aqiRes.json();
+
+                // Extract Data
+                const temp = Math.round(weatherData.current_weather.temperature);
+                const wind = weatherData.current_weather.windspeed;
+                const weatherCode = weatherData.current_weather.weathercode;
+                const aqi = aqiData.current.us_aqi;
+
+                // Determine Weather Icon
+                const icon = getWeatherIcon(weatherCode);
+
+                // Determine AQI Color & Label
+                let aqiClass = 'aqi-good';
+                let aqiLabel = 'Good';
+                if (aqi > 50) { aqiClass = 'aqi-moderate'; aqiLabel = 'Moderate'; }
+                if (aqi > 100) { aqiClass = 'aqi-unhealthy'; aqiLabel = 'Unhealthy'; }
+
+                // 3. Render Dashboard
+                resultDiv.innerHTML = `
+                    <div style="margin-top:10px;">
+                        <div class="city-header">${name}, ${country}</div>
+                        <div class="weather-icon">${icon}</div>
+                        <div class="temp-display">${temp}°</div>
+                        
+                        <div class="stats-grid">
+                            <div class="stat-box">
+                                <span class="stat-label">Wind</span>
+                                <span class="stat-value">${wind} <span style="font-size:0.8em">km/h</span></span>
+                            </div>
+                            <div class="stat-box">
+                                <span class="stat-label">Air Quality</span>
+                                <span class="stat-value ${aqiClass}">${aqi}</span>
+                                <span style="font-size:0.7em; opacity:0.7;">${aqiLabel}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                resultDiv.classList.add('visible');
+
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color:#ff6b6b; margin-top:20px;">${error.message}</p>`;
+            }
+        }
+
+        // Helper to map WMO codes to Emojis
+        function getWeatherIcon(code) {
+            if (code === 0) return '☀️'; // Clear sky
+            if (code >= 1 && code <= 3) return '⛅'; // Partly cloudy
+            if (code >= 45 && code <= 48) return '🌫️'; // Fog
+            if (code >= 51 && code <= 67) return '🌧️'; // Drizzle/Rain
+            if (code >= 71 && code <= 77) return '❄️'; // Snow
+            if (code >= 80 && code <= 82) return '🌦️'; // Showers
+            if (code >= 95) return '⛈️'; // Thunderstorm
+            return '🌡️';
+        }
+
+        // Enter key support
+        document.getElementById("cityInput").addEventListener("keypress", (e) => {
+            if (e.key === "Enter") getWeather();
+        });
+    </script>
+</body>
+</html>
